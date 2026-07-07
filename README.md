@@ -41,5 +41,5 @@ Team:    9431 (The Gold Standard)
 Status:  CONNECTED [O]
 ------------------
 ```
-🔮 Next Steps (Phase 2)
+## 🔮 Next Steps (Phase 2)
 This code currently prints to the console, but the overarching goal of this repository is to replace the print() statements with the rpi-rgb-led-matrix library. We will map this live data directly onto massive physical P10 LED panels to create custom, less expensive driver station signs than what is currently being sold.
