@@ -39,6 +39,7 @@ def parse_station_snapshot(message: str, station: str) -> Optional[StationSnapsh
         ds_conn=station_data.get("DsConn") is True,
         estop=station_data.get("EStop") is True,
         bypass=station_data.get("Bypass") is True,
+        alliance="red" if station[:1].upper() == "R" else "blue",
     )
 
 

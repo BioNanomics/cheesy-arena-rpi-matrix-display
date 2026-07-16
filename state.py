@@ -12,6 +12,7 @@ class StationSnapshot:
     ds_conn: bool
     estop: bool
     bypass: bool
+    alliance: str = "red"  # "red" or "blue", derived from the station code (e.g. "R1"/"B2")
 
 
 class DisplayMode(Enum):

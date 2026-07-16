@@ -19,15 +19,17 @@ from state import DisplayMode, StationSnapshot, team_number_text
 WIDTH = 64
 HEIGHT = 32
 
-TEAM_ZONE_FRACTION = 0.75  # Zone 1 (team number) as a fraction of total width
+BORDER_THICKNESS = 2  # connection-status indicator: a border around the whole panel
 
 COLOR_ESTOP_BG = (220, 20, 20)
-COLOR_BYPASS_BG = (255, 191, 0)
+COLOR_BYPASS_BG = (255, 90, 0)
 COLOR_TEXT_BLACK = (0, 0, 0)
 COLOR_TEXT_WHITE = (255, 255, 255)
 COLOR_BG_NORMAL = (0, 0, 0)
 COLOR_CONNECTED = (0, 255, 0)
 COLOR_DISCONNECTED = (255, 0, 0)
+COLOR_ALLIANCE_RED = (255, 40, 40)
+COLOR_ALLIANCE_BLUE = (40, 120, 255)
 
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 _FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "Silkscreen-Bold.ttf")
@@ -37,9 +39,11 @@ _font_alert = ImageFont.truetype(_FONT_PATH, 11)  # full-screen ESTOP/BYPASS tex
 _font_medium = ImageFont.truetype(_FONT_PATH, 9)
 
 # Candidate sizes for the team number, largest first -- the largest one that
-# fits the team zone's width is used, so a 5-digit team number shrinks
-# instead of overflowing into the status-dot zone.
-_team_font_sizes = [13, 12, 11, 10, 9]
+# fits the available space is used, so a 5-digit team number shrinks instead
+# of overflowing into the border. Silkscreen renders digits much wider than
+# tall, so short team numbers (1-3 digits) need sizes well above what a
+# 4-digit number can fit to actually look proportional.
+_team_font_sizes = list(range(32, 8, -1))
 _team_fonts = [ImageFont.truetype(_FONT_PATH, size) for size in _team_font_sizes]
 
 _logo_image = Image.open(_LOGO_PATH).convert("RGBA") if os.path.exists(_LOGO_PATH) else None
@@ -47,7 +51,13 @@ _logo_image = Image.open(_LOGO_PATH).convert("RGBA") if os.path.exists(_LOGO_PAT
 
 def _new_canvas(bg_color, width: int, height: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
     image = Image.new("RGB", (width, height), bg_color)
-    return image, ImageDraw.Draw(image)
+    draw = ImageDraw.Draw(image)
+    # Bilevel glyph rendering: on a real LED panel each pixel is a discrete
+    # LED, so PIL's default anti-aliased edges just read as a muddy fringe
+    # instead of a smooth blend. Every text pixel is now either fully on
+    # (fill color) or fully off (background), never in between.
+    draw.fontmode = "1"
+    return image, draw
 
 
 def _draw_centered_text(draw: ImageDraw.ImageDraw, text: str, font, fill, box) -> None:
@@ -60,10 +70,10 @@ def _draw_centered_text(draw: ImageDraw.ImageDraw, text: str, font, fill, box) -
     draw.text((x, y), text, font=font, fill=fill)
 
 
-def _fit_team_font(draw: ImageDraw.ImageDraw, text: str, max_width: int):
+def _fit_team_font(draw: ImageDraw.ImageDraw, text: str, max_width: int, max_height: int = HEIGHT):
     for font in _team_fonts:
         bbox = draw.textbbox((0, 0), text, font=font)
-        if bbox[2] - bbox[0] <= max_width:
+        if bbox[2] - bbox[0] <= max_width and bbox[3] - bbox[1] <= max_height:
             return font
     return _team_fonts[-1]  # smallest size, used as-is even if still too wide
 
@@ -83,22 +93,14 @@ def render_bypass(_snapshot: StationSnapshot, width: int = WIDTH, height: int = 
 def render_normal(snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
     image, draw = _new_canvas(COLOR_BG_NORMAL, width, height)
 
-    team_zone_width = int(width * TEAM_ZONE_FRACTION)
-    status_zone_width = width - team_zone_width
+    border_color = COLOR_CONNECTED if snapshot.ds_conn else COLOR_DISCONNECTED
+    draw.rectangle((0, 0, width - 1, height - 1), outline=border_color, width=BORDER_THICKNESS)
 
     team_number = team_number_text(snapshot)
-    margin = 2
-    font = _fit_team_font(draw, team_number, team_zone_width - margin)
-    _draw_centered_text(draw, team_number, font, COLOR_TEXT_WHITE, box=(0, 0, team_zone_width, height))
-
-    dot_color = COLOR_CONNECTED if snapshot.ds_conn else COLOR_DISCONNECTED
-    dot_radius = min(6, status_zone_width // 2, height // 2)
-    cx = team_zone_width + status_zone_width / 2
-    cy = height / 2
-    draw.ellipse(
-        (cx - dot_radius, cy - dot_radius, cx + dot_radius, cy + dot_radius),
-        fill=dot_color,
-    )
+    margin = BORDER_THICKNESS + 1  # keep the number clear of the border itself
+    font = _fit_team_font(draw, team_number, width - 2 * margin, height - 2 * margin)
+    team_color = COLOR_ALLIANCE_RED if snapshot.alliance == "red" else COLOR_ALLIANCE_BLUE
+    _draw_centered_text(draw, team_number, font, team_color, box=(0, 0, width, height))
 
     return image
 
@@ -111,7 +113,7 @@ def render_idle(_snapshot: StationSnapshot, width: int = WIDTH, height: int = HE
         y = (height - _logo_image.height) // 2
         image.paste(_logo_image, (x, y), _logo_image)
     else:
-        # TODO: swap in the real Refinery logo once supplied (assets/refinery_logo.png).
+        # Fallback if assets/refinery_logo.png is ever missing (e.g. a checkout that didn't pull it).
         _draw_centered_text(draw, "----", _font_medium, COLOR_TEXT_WHITE, box=(0, 0, width, height))
 
     return image

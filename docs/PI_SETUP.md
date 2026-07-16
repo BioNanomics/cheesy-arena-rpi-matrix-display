@@ -35,30 +35,37 @@ Reboot after saving.
 
 ```bash
 sudo apt update
-sudo apt install -y git build-essential python3-dev python3-pip python3-venv
+sudo apt install -y git build-essential python3-dev python3-pip python3-venv cython3 python3-pil
 ```
 
-## 4. Build and install the matrix library
+## 4. Clone the matrix library
 
 ```bash
 git clone https://github.com/hzeller/rpi-rgb-led-matrix.git
 cd rpi-rgb-led-matrix
-make build-python PYTHON=$(which python3)
-sudo make install-python PYTHON=$(which python3)
 ```
 
-This installs the `rgbmatrix` module into the system site-packages — it is
-not pip-installable in the normal sense.
+Don't build yet — create the venv first (next step), since the bindings
+now install directly into it.
 
-## 5. Create a venv that can see `rgbmatrix`
+## 5. Create a venv and install the Python bindings
 
-A plain `python3 -m venv` would hide the system-installed `rgbmatrix`
-module, so create it with `--system-site-packages`:
+As of Feb 2026 the project switched from `make build-python` /
+`make install-python` to a `pip install .` build (cmake + scikit-build-core
+under the hood), so a plain venv works fine now — no
+`--system-site-packages` needed:
 
 ```bash
-python3 -m venv --system-site-packages ~/cheesy-venv
+python3 -m venv ~/cheesy-venv
 source ~/cheesy-venv/bin/activate
+pip install .
+cd ~
 ```
+
+This step needs internet access — `pip install .` pulls `cmake` and
+`scikit-build-core` from PyPI to compile the extension. Do it before
+disabling Wi-Fi for the field network (step 1's Wi-Fi is only for initial
+setup and gets turned off later).
 
 ## 6. Clone this repo and install Python deps
 
@@ -119,6 +126,14 @@ reconnect loop recovers from FMS server restarts/network blips.
   value.
 - **Flickering**: confirm step 2 (onboard audio disabled) was applied and
   the Pi was rebooted afterward.
-- **`ImportError: No module named rgbmatrix`**: the venv wasn't created with
-  `--system-site-packages`, or step 4's `make install-python` didn't
-  complete — re-check step 5.
+- **`ImportError: No module named rgbmatrix`**: step 5's `pip install .`
+  didn't complete, or you're not running the Python from `~/cheesy-venv`
+  (check `which python3`/`which pip`) — re-check step 5.
+- **`make: *** No rule to make target 'build-python'. Stop.`**: you're
+  following outdated instructions (the old `make build-python` /
+  `make install-python` method). The project switched to `pip install .`
+  in Feb 2026 — use step 5 above instead.
+- **`fatal error: Imaging.h: No such file or directory`** while building
+  `pillow.c`: missing the `python3-pil` apt package (it ships Pillow's C
+  headers; the pip-installed `Pillow` wheel does not). Run
+  `sudo apt-get install -y python3-pil` and retry `pip install .`.
