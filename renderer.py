@@ -20,6 +20,7 @@ WIDTH = 64
 HEIGHT = 32
 
 BORDER_THICKNESS = 2  # connection-status indicator: a border around the whole panel
+TEAM_NUMBER_LETTER_SPACING = 2  # extra px between digits -- Press Start 2P's wide/blocky digits (8, 6, 0) otherwise crowd together with no visible separation
 
 COLOR_ESTOP_BG = (220, 20, 20)
 COLOR_BYPASS_BG = (255, 90, 0)
@@ -32,17 +33,18 @@ COLOR_ALLIANCE_RED = (255, 40, 40)
 COLOR_ALLIANCE_BLUE = (40, 120, 255)
 
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
-_FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "PressStart2P-Regular.ttf")
+_FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "PixelifySans.ttf")
 _LOGO_PATH = os.path.join(_ASSETS_DIR, "refinery_logo.png")
 
-_font_alert = ImageFont.truetype(_FONT_PATH, 9)  # full-screen ESTOP/BYPASS text
-_font_medium = ImageFont.truetype(_FONT_PATH, 9)
+_font_alert = ImageFont.truetype(_FONT_PATH, 18)  # full-screen ESTOP/BYPASS text
+_font_medium = ImageFont.truetype(_FONT_PATH, 16)
 
 # Candidate sizes for the team number, largest first -- the largest one that
 # fits the available space is used, so a 5-digit team number shrinks instead
-# of overflowing into the border. Press Start 2P is roughly monospace/square
-# per character, so size scales fairly evenly with available width.
-_team_font_sizes = list(range(32, 5, -1))
+# of overflowing into the border. Pixelify Sans is narrower per character than
+# the fonts tried previously, so short team numbers need sizes well above 32
+# to actually fill the panel's height.
+_team_font_sizes = list(range(44, 5, -1))
 _team_fonts = [ImageFont.truetype(_FONT_PATH, size) for size in _team_font_sizes]
 
 _logo_image = Image.open(_LOGO_PATH).convert("RGBA") if os.path.exists(_LOGO_PATH) else None
@@ -54,11 +56,19 @@ def _new_canvas(bg_color, width: int, height: int) -> tuple[Image.Image, ImageDr
     return image, draw
 
 
-def _draw_centered_text(draw: ImageDraw.ImageDraw, image: Image.Image, text: str, font, fill, box) -> None:
+def _spaced_width(draw: ImageDraw.ImageDraw, text: str, font, letter_spacing: int) -> float:
+    if not text:
+        return 0
+    return sum(draw.textlength(ch, font=font) for ch in text) + letter_spacing * (len(text) - 1)
+
+
+def _draw_centered_text(
+    draw: ImageDraw.ImageDraw, image: Image.Image, text: str, font, fill, box, letter_spacing: int = 0
+) -> None:
     x0, y0, x1, y1 = box
     bbox = draw.textbbox((0, 0), text, font=font)
-    text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
+    text_w = _spaced_width(draw, text, font, letter_spacing) if letter_spacing else bbox[2] - bbox[0]
     x = x0 + ((x1 - x0) - text_w) / 2 - bbox[0]
     y = y0 + ((y1 - y0) - text_h) / 2 - bbox[1]
 
@@ -68,15 +78,27 @@ def _draw_centered_text(draw: ImageDraw.ImageDraw, image: Image.Image, text: str
     # mask ourselves so the final pixels are still fully on/off on the panel,
     # with no blended anti-aliased fringe color.
     mask = Image.new("L", image.size, 0)
-    ImageDraw.Draw(mask).text((x, y), text, font=font, fill=255)
+    mask_draw = ImageDraw.Draw(mask)
+    if letter_spacing:
+        cursor = x
+        for ch in text:
+            mask_draw.text((cursor, y), ch, font=font, fill=255)
+            cursor += draw.textlength(ch, font=font) + letter_spacing
+    else:
+        mask_draw.text((x, y), text, font=font, fill=255)
     mask = mask.point(lambda v: 255 if v >= 128 else 0)
     image.paste(fill, (0, 0), mask)
 
 
-def _fit_team_font(draw: ImageDraw.ImageDraw, text: str, max_width: int, max_height: int = HEIGHT):
+def _fit_team_font(
+    draw: ImageDraw.ImageDraw, text: str, max_width: int, max_height: int = HEIGHT, letter_spacing: int = 0
+):
     for font in _team_fonts:
+        width = _spaced_width(draw, text, font, letter_spacing) if letter_spacing else None
         bbox = draw.textbbox((0, 0), text, font=font)
-        if bbox[2] - bbox[0] <= max_width and bbox[3] - bbox[1] <= max_height:
+        if width is None:
+            width = bbox[2] - bbox[0]
+        if width <= max_width and bbox[3] - bbox[1] <= max_height:
             return font
     return _team_fonts[-1]  # smallest size, used as-is even if still too wide
 
@@ -101,9 +123,13 @@ def render_normal(snapshot: StationSnapshot, width: int = WIDTH, height: int = H
 
     team_number = team_number_text(snapshot)
     margin = BORDER_THICKNESS + 1  # keep the number clear of the border itself
-    font = _fit_team_font(draw, team_number, width - 2 * margin, height - 2 * margin)
+    font = _fit_team_font(
+        draw, team_number, width - 2 * margin, height - 2 * margin, letter_spacing=TEAM_NUMBER_LETTER_SPACING
+    )
     team_color = COLOR_ALLIANCE_RED if snapshot.alliance == "red" else COLOR_ALLIANCE_BLUE
-    _draw_centered_text(draw, image, team_number, font, team_color, box=(0, 0, width, height))
+    _draw_centered_text(
+        draw, image, team_number, font, team_color, box=(0, 0, width, height), letter_spacing=TEAM_NUMBER_LETTER_SPACING
+    )
 
     return image
 
