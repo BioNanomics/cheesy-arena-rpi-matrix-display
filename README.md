@@ -1,45 +1,64 @@
-# Cheesy Arena WebSocket Console Monitor (Phase 1 Prototype)
+# Cheesy Arena RPi Matrix Display
 
-This is a lightweight Python script that taps directly into the [Cheesy Arena](https://github.com/Team254/cheesy-arena) Field Management System (FMS) via WebSockets and streams live match data straight to your terminal. 
-
-This script serves as a **software test bench**. It proves that its possible to successfully parse live FMS data (like team assignments and driver station connection statuses) without relying on a web browser, paving the way for custom LED matrix field displays.
+Drives a 64x32 LED matrix panel from live [Cheesy Arena](https://github.com/Team254/cheesy-arena) FMS websocket data: team number, driver-station connection status, and full-screen E-Stop/Bypass overrides. See `plan.md` for the full project spec and `IMPLEMENTATION_PLAN.md` for the build plan.
 
 ## 🚀 Features
 * **Direct WebSocket Connection:** Listens to the exact same live stream that the official FMS auxiliary displays use.
-* **Terminal Output:** Prints real-time team assignments, nicknames, and driver station connection statuses directly to the console.
-* **Auto-Reconnect:** If the FMS server drops or reboots, the script automatically attempts to re-establish the handshake.
-* **Lightweight:** Runs entirely in the terminal with zero GUI or web browser overhead.
+* **Priority Display Modes:** ESTOP > BYPASS > NORMAL (team # + connection dot) > IDLE, per `plan.md`'s override matrix.
+* **Hardware-Free Development:** The render pipeline (`fms_client.py` → `state.py` → `renderer.py`) never touches hardware directly — `sinks.py` swaps between a `FileSink` (writes PNGs, any dev machine) and `MatrixSink` (real panel, Pi only).
+* **Auto-Reconnect:** If the FMS server drops or reboots, the client automatically re-establishes the websocket handshake.
+* **Headless Resiliency:** Runs as a systemd service (`systemd/cheesy-display.service`) that restarts on crash and on boot.
 
 ## 💻 Prerequisites
-You only need Python 3 and the WebSocket client library. 
-To install the required dependency on a Raspberry Pi, run:
 
+Dev machine (no hardware needed):
 ```bash
-pip3 install websocket-client
+pip install -r requirements.txt
 ```
-(Note: Use sudo apt install python3-websocket if your OS enforces externally managed environments).
+
+Raspberry Pi with the physical panel: follow `docs/PI_SETUP.md` in full — it covers OS setup, disabling onboard audio (GPIO conflict), and building the `rpi-rgb-led-matrix` Python bindings from source (not pip-installable).
 
 ## ⚙️ Configuration
-Open the fms_test.py file and edit the top variables to match your field network:
-```Python
-FMS_IP = "10.0.100.5"   # The IP address of your Cheesy Arena Server
-TARGET_STATION = "B1"   # The Alliance Station you want to monitor (e.g., R1, B2, Timer)
-```
-## ▶️ Usage
-Make sure your computer or Raspberry Pi is connected to the field network, then run the script:
-```bash
-python3 fms_test.py
-```
-You should see a successful handshake, followed by live data printing to your screen whenever the scorekeeper updates the match or a driver station is plugged in:
-```Plaintext
-Successfully connected to Cheesy Arena at ws://10.0.100.5:8080/displays/alliance_station/websocket?displayId=100&station=B1
-Listening for updates on station: B1...
 
---- FMS UPDATE ---
-Station: B1
-Team:    9431 (The Gold Standard)
-Status:  CONNECTED [O]
-------------------
+Set via environment variables (see `config.py` for the full list and defaults), with `argparse` overrides for local runs:
+
+```bash
+python3 main.py --fms-ip 10.0.100.5 --station B1 --sink file
 ```
-## 🔮 Next Steps (Phase 2)
-This code currently prints to the console, but the overarching goal of this repository is to replace the print() statements with the rpi-rgb-led-matrix library. We will map this live data directly onto massive physical P10 LED panels to create custom, less expensive driver station signs than what is currently being sold.
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `CHEESY_FMS_IP` | Cheesy Arena server IP | `10.0.100.5` |
+| `CHEESY_STATION` | Alliance station to monitor (e.g. `R1`, `B2`) | `B1` |
+| `CHEESY_SINK` | `file` (dev/preview) or `matrix` (real panel) | `file` |
+| `CHEESY_MATRIX_*` | Panel dimensions / hardware mapping / GPIO tuning | see `config.py` |
+
+## ▶️ Usage
+
+**No hardware, just proving the render pipeline works:**
+```bash
+python3 tools/preview.py   # writes out/*.png for all 5 fixture states
+```
+
+**On the Pi, driving the real panel:**
+```bash
+python3 main.py --sink matrix
+```
+
+**Hardware smoke test** (no FMS/websocket involved at all — just proves the Pi → HAT → panel chain works):
+```bash
+sudo python3 hardware_test.py
+```
+
+## 🧪 Tests
+```bash
+pip install pytest
+pytest
+```
+
+## 🔮 Roadmap
+* **FTA Diagnostic Boot Screen:** render the Pi's local IP on boot before connecting to the FMS, for easy SSH access without network scanning. Deferred — not part of core delivery (see `IMPLEMENTATION_PLAN.md`).
+* Swap the IDLE-mode placeholder ("----") for the real Refinery logo once the asset is supplied (`assets/refinery_logo.png`).
+
+## 📜 History
+`fms_ws_test.py` is the original Phase 1 console prototype and is kept only as a historical reference — it's superseded by `main.py`. Its one bug (reading the connection-status key as `sConn` instead of `DsConn`) was carried forward into that file as-is, but was caught and fixed in `fms_client.py` (see `tests/test_fms_client.py::test_ds_conn_is_parsed_from_the_correct_key`).

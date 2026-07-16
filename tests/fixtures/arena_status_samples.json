@@ -1,0 +1,67 @@
+{
+  "estop": {
+    "type": "arenaStatus",
+    "data": {
+      "AllianceStations": {
+        "B1": {
+          "Team": { "Id": 9431, "Nickname": "Refinery" },
+          "DsConn": true,
+          "EStop": true,
+          "Bypass": false
+        }
+      }
+    }
+  },
+  "bypass": {
+    "type": "arenaStatus",
+    "data": {
+      "AllianceStations": {
+        "B1": {
+          "Team": { "Id": 9431, "Nickname": "Refinery" },
+          "DsConn": true,
+          "EStop": false,
+          "Bypass": true
+        }
+      }
+    }
+  },
+  "normal_connected": {
+    "type": "arenaStatus",
+    "data": {
+      "AllianceStations": {
+        "B1": {
+          "Team": { "Id": 9431, "Nickname": "Refinery" },
+          "DsConn": true,
+          "EStop": false,
+          "Bypass": false
+        }
+      }
+    }
+  },
+  "normal_disconnected": {
+    "type": "arenaStatus",
+    "data": {
+      "AllianceStations": {
+        "B1": {
+          "Team": { "Id": 9431, "Nickname": "Refinery" },
+          "DsConn": false,
+          "EStop": false,
+          "Bypass": false
+        }
+      }
+    }
+  },
+  "idle": {
+    "type": "arenaStatus",
+    "data": {
+      "AllianceStations": {
+        "B1": {
+          "Team": null,
+          "DsConn": false,
+          "EStop": false,
+          "Bypass": false
+        }
+      }
+    }
+  }
+}
