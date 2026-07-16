@@ -20,7 +20,7 @@ WIDTH = 64
 HEIGHT = 32
 
 BORDER_THICKNESS = 2  # connection-status indicator: a border around the whole panel
-TEAM_NUMBER_LETTER_SPACING = 2  # extra px between digits -- Press Start 2P's wide/blocky digits (8, 6, 0) otherwise crowd together with no visible separation
+TEAM_NUMBER_LETTER_SPACING = 1  # small px gap between digits so segments don't visually touch
 
 COLOR_ESTOP_BG = (220, 20, 20)
 COLOR_BYPASS_BG = (255, 90, 0)
@@ -34,6 +34,12 @@ COLOR_ALLIANCE_BLUE = (40, 120, 255)
 
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 _FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "PixelifySans.ttf")
+# DSEG7 renders digits as a real 7-segment display -- built from simple
+# geometric segments rather than organic curves, so unlike every pixel-art
+# font tried before it, it stays crisp and unambiguous at small sizes with
+# no risk of corrupted/crowded glyphs. Used for the team number only; it has
+# no letters, so status text still uses the regular pixel font above.
+_TEAM_FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "DSEG7Modern-Bold.ttf")
 _LOGO_PATH = os.path.join(_ASSETS_DIR, "refinery_logo.png")
 
 _font_alert = ImageFont.truetype(_FONT_PATH, 18)  # full-screen ESTOP/BYPASS text
@@ -41,11 +47,10 @@ _font_medium = ImageFont.truetype(_FONT_PATH, 16)
 
 # Candidate sizes for the team number, largest first -- the largest one that
 # fits the available space is used, so a 5-digit team number shrinks instead
-# of overflowing into the border. Pixelify Sans is narrower per character than
-# the fonts tried previously, so short team numbers need sizes well above 32
-# to actually fill the panel's height.
-_team_font_sizes = list(range(44, 5, -1))
-_team_fonts = [ImageFont.truetype(_FONT_PATH, size) for size in _team_font_sizes]
+# of overflowing into the border. DSEG7 is monospace with ink width matching
+# advance width exactly, so size scales very predictably with digit count.
+_team_font_sizes = list(range(35, 5, -1))
+_team_fonts = [ImageFont.truetype(_TEAM_FONT_PATH, size) for size in _team_font_sizes]
 
 _logo_image = Image.open(_LOGO_PATH).convert("RGBA") if os.path.exists(_LOGO_PATH) else None
 
