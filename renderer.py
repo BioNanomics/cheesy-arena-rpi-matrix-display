@@ -32,18 +32,17 @@ COLOR_ALLIANCE_RED = (255, 40, 40)
 COLOR_ALLIANCE_BLUE = (40, 120, 255)
 
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
-_FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "Silkscreen-Regular.ttf")
+_FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "PressStart2P-Regular.ttf")
 _LOGO_PATH = os.path.join(_ASSETS_DIR, "refinery_logo.png")
 
-_font_alert = ImageFont.truetype(_FONT_PATH, 11)  # full-screen ESTOP/BYPASS text
+_font_alert = ImageFont.truetype(_FONT_PATH, 9)  # full-screen ESTOP/BYPASS text
 _font_medium = ImageFont.truetype(_FONT_PATH, 9)
 
 # Candidate sizes for the team number, largest first -- the largest one that
 # fits the available space is used, so a 5-digit team number shrinks instead
-# of overflowing into the border. Silkscreen renders digits much wider than
-# tall, so short team numbers (1-3 digits) need sizes well above what a
-# 4-digit number can fit to actually look proportional.
-_team_font_sizes = list(range(32, 8, -1))
+# of overflowing into the border. Press Start 2P is roughly monospace/square
+# per character, so size scales fairly evenly with available width.
+_team_font_sizes = list(range(32, 5, -1))
 _team_fonts = [ImageFont.truetype(_FONT_PATH, size) for size in _team_font_sizes]
 
 _logo_image = Image.open(_LOGO_PATH).convert("RGBA") if os.path.exists(_LOGO_PATH) else None
