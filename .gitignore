@@ -4,3 +4,4 @@ __pycache__/
 out/
 venv/
 *.egg-info/
+LOCAL_TESTING.md
