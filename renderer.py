@@ -32,7 +32,7 @@ COLOR_ALLIANCE_RED = (255, 40, 40)
 COLOR_ALLIANCE_BLUE = (40, 120, 255)
 
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
-_FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "Silkscreen-Bold.ttf")
+_FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "Silkscreen-Regular.ttf")
 _LOGO_PATH = os.path.join(_ASSETS_DIR, "refinery_logo.png")
 
 _font_alert = ImageFont.truetype(_FONT_PATH, 11)  # full-screen ESTOP/BYPASS text
