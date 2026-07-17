@@ -32,6 +32,10 @@ COLOR_DISCONNECTED = (255, 0, 0)
 COLOR_ALLIANCE_RED = (255, 40, 40)
 COLOR_ALLIANCE_BLUE = (40, 120, 255)
 
+IDLE_ACCENT_BRIGHTNESS = 0.4  # dims the idle-screen top/bottom bars so they don't outshine the logo
+COLOR_ALLIANCE_RED_DIM = tuple(round(c * IDLE_ACCENT_BRIGHTNESS) for c in COLOR_ALLIANCE_RED)
+COLOR_ALLIANCE_BLUE_DIM = tuple(round(c * IDLE_ACCENT_BRIGHTNESS) for c in COLOR_ALLIANCE_BLUE)
+
 _ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 _FONT_PATH = os.path.join(_ASSETS_DIR, "fonts", "PixelifySans.ttf")
 # DSEG7 renders digits as a real 7-segment display -- built from simple
@@ -139,7 +143,7 @@ def render_normal(snapshot: StationSnapshot, width: int = WIDTH, height: int = H
     return image
 
 
-def render_idle(_snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
+def render_idle(snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
     image, draw = _new_canvas(COLOR_BG_NORMAL, width, height)
 
     if _logo_image is not None:
@@ -149,6 +153,10 @@ def render_idle(_snapshot: StationSnapshot, width: int = WIDTH, height: int = HE
     else:
         # Fallback if assets/refinery_logo.png is ever missing (e.g. a checkout that didn't pull it).
         _draw_centered_text(draw, image, "----", _font_medium, COLOR_TEXT_WHITE, box=(0, 0, width, height))
+
+    accent_color = COLOR_ALLIANCE_RED_DIM if snapshot.alliance == "red" else COLOR_ALLIANCE_BLUE_DIM
+    draw.rectangle((0, 0, width - 1, BORDER_THICKNESS - 1), fill=accent_color)
+    draw.rectangle((0, height - BORDER_THICKNESS, width - 1, height - 1), fill=accent_color)
 
     return image
 
