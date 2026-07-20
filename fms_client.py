@@ -3,10 +3,32 @@
 import json
 import time
 from typing import Callable, Optional
+from urllib.parse import urlparse, parse_qs
 
 import websocket
 
 from state import StationSnapshot
+
+
+def parse_display_configuration(message: str) -> Optional[str]:
+    """Parse a displayConfiguration message and return its "mode" query param.
+
+    Cheesy Arena sends this whenever an admin edits this display's row on the
+    Setup -> Displays page -- the live, in-Cheesy-Arena equivalent of editing
+    a local config file. Returns None if the message isn't a
+    displayConfiguration packet at all; returns "" (not None) if it is one
+    but the admin cleared/never set "mode", so callers can tell "not
+    applicable" apart from "explicitly reset to the default".
+    """
+    data = json.loads(message)
+
+    if data.get("type") != "displayConfiguration":
+        return None
+
+    url = data.get("data", "")
+    params = parse_qs(urlparse(url).query, keep_blank_values=True)
+    values = params.get("mode", [""])
+    return values[0] if values else ""
 
 
 def parse_station_snapshot(message: str, station: str) -> Optional[StationSnapshot]:
@@ -43,19 +65,37 @@ def parse_station_snapshot(message: str, station: str) -> Optional[StationSnapsh
     )
 
 
-def build_ws_url(fms_ip: str, station: str, display_id: int = 100) -> str:
-    return f"ws://{fms_ip}:8080/displays/alliance_station/websocket?displayId={display_id}&station={station}"
+def build_ws_url(fms_ip: str, station: str, display_id: int = 100, initial_mode: Optional[str] = None) -> str:
+    url = f"ws://{fms_ip}:8080/displays/alliance_station/websocket?displayId={display_id}&station={station}"
+    if initial_mode:
+        # Seeds this display's Configuration on Cheesy Arena's Setup -> Displays
+        # page with our local startup default, so the admin UI and the Pi agree
+        # on the starting mode before anyone edits it live.
+        url += f"&mode={initial_mode}"
+    return url
 
 
-def handle_message(message: str, station: str, on_snapshot: Callable[[StationSnapshot], None]) -> None:
-    """Parse a raw message and invoke on_snapshot, guarding against any error
-    (malformed payload, or a failure inside on_snapshot's own rendering/hardware
-    code) so a single bad message can't kill the websocket connection.
+def handle_message(
+    message: str,
+    station: str,
+    on_snapshot: Callable[[StationSnapshot], None],
+    on_config_change: Optional[Callable[[str], None]] = None,
+) -> None:
+    """Parse a raw message and invoke on_snapshot or on_config_change, guarding
+    against any error (malformed payload, or a failure inside a callback's own
+    rendering/hardware code) so a single bad message can't kill the websocket
+    connection.
     """
     try:
         snapshot = parse_station_snapshot(message, station)
         if snapshot is not None:
             on_snapshot(snapshot)
+            return
+
+        if on_config_change is not None:
+            mode = parse_display_configuration(message)
+            if mode is not None:
+                on_config_change(mode)
     except Exception as exc:
         print(f"Error handling message: {exc}")
 
@@ -65,15 +105,19 @@ def run_forever(
     station: str,
     on_snapshot: Callable[[StationSnapshot], None],
     reconnect_delay: float = 3.0,
+    on_config_change: Optional[Callable[[str], None]] = None,
+    initial_mode: Optional[str] = None,
 ) -> None:
-    """Connect to the FMS and invoke on_snapshot for every parsed update.
+    """Connect to the FMS and invoke on_snapshot for every parsed update, and
+    on_config_change whenever the display's live Configuration is edited from
+    Cheesy Arena's Setup -> Displays page.
 
     Reconnects automatically if the connection drops or the FMS restarts.
     """
-    ws_url = build_ws_url(fms_ip, station)
+    ws_url = build_ws_url(fms_ip, station, initial_mode=initial_mode)
 
     def on_message(_ws: websocket.WebSocketApp, message: str) -> None:
-        handle_message(message, station, on_snapshot)
+        handle_message(message, station, on_snapshot, on_config_change)
 
     def on_error(_ws: websocket.WebSocketApp, error: Exception) -> None:
         print(f"Connection Error: {error}")

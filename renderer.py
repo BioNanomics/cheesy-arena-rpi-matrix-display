@@ -22,8 +22,8 @@ HEIGHT = 32
 BORDER_THICKNESS = 2  # connection-status indicator: a border around the whole panel
 TEAM_NUMBER_LETTER_SPACING = 1  # small px gap between digits so segments don't visually touch
 
-COLOR_ESTOP_BG = (220, 20, 20)
-COLOR_BYPASS_BG = (255, 90, 0)
+COLOR_ESTOP_BG = (165, 15, 15)  # 75% of (220, 20, 20)
+COLOR_BYPASS_BG = (191, 68, 0)  # 75% of (255, 90, 0)
 COLOR_TEXT_BLACK = (0, 0, 0)
 COLOR_TEXT_WHITE = (255, 255, 255)
 COLOR_BG_NORMAL = (0, 0, 0)
@@ -112,26 +112,33 @@ def _fit_team_font(
     return _team_fonts[-1]  # smallest size, used as-is even if still too wide
 
 
-def render_estop(_snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
+def render_estop(
+    _snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT, _basic_mode: bool = False
+) -> Image.Image:
     image, draw = _new_canvas(COLOR_ESTOP_BG, width, height)
     _draw_centered_text(draw, image, "ESTOP", _font_alert, COLOR_TEXT_BLACK, box=(0, 0, width, height))
     return image
 
 
-def render_bypass(_snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
+def render_bypass(
+    _snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT, _basic_mode: bool = False
+) -> Image.Image:
     image, draw = _new_canvas(COLOR_BYPASS_BG, width, height)
     _draw_centered_text(draw, image, "BYPASS", _font_alert, COLOR_TEXT_BLACK, box=(0, 0, width, height))
     return image
 
 
-def render_normal(snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
+def render_normal(
+    snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT, basic_mode: bool = False
+) -> Image.Image:
     image, draw = _new_canvas(COLOR_BG_NORMAL, width, height)
 
-    border_color = COLOR_CONNECTED if snapshot.ds_conn else COLOR_DISCONNECTED
-    draw.rectangle((0, 0, width - 1, height - 1), outline=border_color, width=BORDER_THICKNESS)
+    if not basic_mode:
+        border_color = COLOR_CONNECTED if snapshot.ds_conn else COLOR_DISCONNECTED
+        draw.rectangle((0, 0, width - 1, height - 1), outline=border_color, width=BORDER_THICKNESS)
 
     team_number = team_number_text(snapshot)
-    margin = BORDER_THICKNESS + 1  # keep the number clear of the border itself
+    margin = BORDER_THICKNESS + 1  # keep the number clear of where the border would be
     font = _fit_team_font(
         draw, team_number, width - 2 * margin, height - 2 * margin, letter_spacing=TEAM_NUMBER_LETTER_SPACING
     )
@@ -143,7 +150,9 @@ def render_normal(snapshot: StationSnapshot, width: int = WIDTH, height: int = H
     return image
 
 
-def render_idle(snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
+def render_idle(
+    snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT, basic_mode: bool = False
+) -> Image.Image:
     image, draw = _new_canvas(COLOR_BG_NORMAL, width, height)
 
     if _logo_image is not None:
@@ -154,9 +163,10 @@ def render_idle(snapshot: StationSnapshot, width: int = WIDTH, height: int = HEI
         # Fallback if assets/refinery_logo.png is ever missing (e.g. a checkout that didn't pull it).
         _draw_centered_text(draw, image, "----", _font_medium, COLOR_TEXT_WHITE, box=(0, 0, width, height))
 
-    accent_color = COLOR_ALLIANCE_RED_DIM if snapshot.alliance == "red" else COLOR_ALLIANCE_BLUE_DIM
-    draw.rectangle((0, 0, width - 1, BORDER_THICKNESS - 1), fill=accent_color)
-    draw.rectangle((0, height - BORDER_THICKNESS, width - 1, height - 1), fill=accent_color)
+    if not basic_mode:
+        accent_color = COLOR_ALLIANCE_RED_DIM if snapshot.alliance == "red" else COLOR_ALLIANCE_BLUE_DIM
+        draw.rectangle((0, 0, width - 1, BORDER_THICKNESS - 1), fill=accent_color)
+        draw.rectangle((0, height - BORDER_THICKNESS, width - 1, height - 1), fill=accent_color)
 
     return image
 
@@ -169,5 +179,7 @@ _RENDERERS = {
 }
 
 
-def render(mode: DisplayMode, snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT) -> Image.Image:
-    return _RENDERERS[mode](snapshot, width, height)
+def render(
+    mode: DisplayMode, snapshot: StationSnapshot, width: int = WIDTH, height: int = HEIGHT, basic_mode: bool = False
+) -> Image.Image:
+    return _RENDERERS[mode](snapshot, width, height, basic_mode)

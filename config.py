@@ -5,6 +5,9 @@ import os
 from dataclasses import dataclass
 
 
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
 @dataclass
 class Config:
     fms_ip: str
@@ -16,6 +19,7 @@ class Config:
     matrix_gpio_slowdown: int = 2
     matrix_brightness: int = 100
     matrix_pwm_bits: int = 11
+    basic_mode: bool = False
 
 
 def load_config() -> Config:
@@ -24,7 +28,13 @@ def load_config() -> Config:
     parser.add_argument("--fms-ip")
     parser.add_argument("--station")
     parser.add_argument("--sink", choices=["file", "matrix"])
+    parser.add_argument("--basic-mode", action="store_true", default=None)
     args, _unknown = parser.parse_known_args()
+
+    if args.basic_mode is not None:
+        basic_mode = args.basic_mode
+    else:
+        basic_mode = os.environ.get("CHEESY_BASIC_MODE", "false").strip().lower() in _TRUTHY
 
     return Config(
         fms_ip=args.fms_ip or os.environ.get("CHEESY_FMS_IP", "10.0.100.5"),
@@ -36,4 +46,5 @@ def load_config() -> Config:
         matrix_gpio_slowdown=int(os.environ.get("CHEESY_MATRIX_GPIO_SLOWDOWN", 2)),
         matrix_brightness=int(os.environ.get("CHEESY_MATRIX_BRIGHTNESS", 100)),
         matrix_pwm_bits=int(os.environ.get("CHEESY_MATRIX_PWM_BITS", 11)),
+        basic_mode=basic_mode,
     )

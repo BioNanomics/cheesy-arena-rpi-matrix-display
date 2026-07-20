@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
+Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=/etc/cheesy-display/config.env
 WorkingDirectory=/home/admin/cheesy-arena-rpi-matrix-display
 ExecStart=/home/admin/cheesy-venv/bin/python3 main.py
