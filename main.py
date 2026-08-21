@@ -74,6 +74,20 @@ if __name__ == "__main__":
     handle_snapshot, handle_config_change = make_handlers(
         tracker, sink, width=config.matrix_cols, height=config.matrix_rows, display_state=display_state
     )
+
+    # Show the idle/logo screen immediately on startup, before the FMS
+    # connection is even attempted, so the panel isn't dark while waiting
+    # for Cheesy Arena to come up or become reachable.
+    boot_snapshot = StationSnapshot(
+        team_id=None, team_nickname=None, ds_conn=False, estop=False, bypass=False,
+        alliance="red" if config.target_station[:1].upper() == "R" else "blue",
+    )
+    sink.show(render(
+        DisplayMode.IDLE, boot_snapshot,
+        width=config.matrix_cols, height=config.matrix_rows,
+        basic_mode=display_state.basic_mode,
+    ))
+
     try:
         run_forever(
             config.fms_ip,
